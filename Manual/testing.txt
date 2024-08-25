@@ -1,0 +1,74 @@
+'''
+Prepare the test DataLoader
+Returns a tuple containing ``(train_dataset, test_dataset)``.
+'''
+test_size = int(0.2 * len(dataset))
+train_size = len(dataset) - test_size
+train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
+
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+
+'''
+Extend the testing function
+Evaluation metrics
+- model.eval(): Sets the model to evaluation mode.
+- with torch.no_grad():Temporarily disables gradient computation during evaluation.
+- outputs = model(spectrograms): Forward pass on the test set.
+- predicted = (outputs >= 1).float(): Converting model probabilities to binary predictions using a threshold of 1.
+- accuracy = Calculating accuracy based on the percentage of truely predicted labels from the total.
+'''
+def test_model(model, test_loader, criterion, num_samples=5):
+    model.eval()
+    test_loss = 0.0
+    correct = 0
+    total = 0
+    predictions = []
+    true_labels = []
+    spectrogram_samples = []
+
+    with torch.no_grad():
+        for spectrograms, labels in test_loader:
+            spectrograms, labels = spectrograms.to(device), labels.to(device)
+
+            outputs = model(spectrograms)
+            #print(f"outputs: {outputs} labels: {labels}")
+
+            loss = criterion(outputs, labels)
+            test_loss += loss.item()
+
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+            # Collect samples for visualization
+            if len(predictions) < num_samples:
+                predictions.extend(predicted.cpu().numpy())
+                true_labels.extend(labels.cpu().numpy())
+                spectrogram_samples.extend(spectrograms.cpu().numpy())
+
+    test_loss /= len(test_loader)
+    accuracy = 100 * correct / total
+    print(f'Test Loss: {test_loss:.4f}, Test Accuracy: {accuracy:.2f}%')
+    return test_loss, accuracy, spectrogram_samples[:num_samples], true_labels[:num_samples], predictions[:num_samples]
+
+# Visualization function for predictions
+def visualize_predictions(spectrograms, true_labels, predicted_labels, label_encoder):
+    num_samples = len(spectrograms)
+    plt.figure(figsize=(15, num_samples * 3))
+    for i in range(num_samples):
+        plt.subplot(num_samples, 1, i + 1)
+        spectrogram = spectrograms[i][0]
+        true_label = label_encoder.inverse_transform([true_labels[i]])[0]
+        predicted_label = label_encoder.inverse_transform([predicted_labels[i]])[0]
+        librosa.display.specshow(librosa.power_to_db(spectrogram, ref=np.max), sr=16000, hop_length=160, y_axis='mel', fmax=8000, x_axis='time')
+        plt.colorbar(format='%+2.0f dB')
+        plt.title(f'True: {true_label}, Predicted: {predicted_label}')
+        plt.tight_layout()
+    plt.show()
+
+# Test the model and get sample predictions
+test_loss, test_accuracy, spectrogram_samples, true_labels, predictions = test_model(model, test_loader, criterion)
+
+# Visualize the predictions
+visualize_predictions(spectrogram_samples, true_labels, predictions, label_encoder)
+
