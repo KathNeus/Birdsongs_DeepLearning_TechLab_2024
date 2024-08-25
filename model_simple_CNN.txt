@@ -1,0 +1,58 @@
+import torch.nn as nn
+import torch
+import torch.optim as optim
+
+torch.cuda.empty_cache()
+# Define a simpler CNN model
+'''
+CNN uses convolution operation to process the data, which has some benefits for working with images. CNNs reduce the number of parameters in the network. The simple CNN has 3 hidden layers.
+'''
+class SimpleCNN(nn.Module):
+    def __init__(self, num_classes, input_dim=166):
+        print("num_classes: "+str(num_classes))
+        super(SimpleCNN, self).__init__()
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        self.dropout = nn.Dropout(0.5)
+        conv_output_size = self._get_conv_output(input_dim, max_length)
+        print("conv_output_size: "+str(conv_output_size))
+        self.fc1 = nn.Linear(conv_output_size, 128)
+        self.fc2 = nn.Linear(128, num_classes)
+
+    def _get_conv_output(self, input_dim, max_length):
+        # Create a dummy tensor with the same shape as the input
+        x = torch.zeros(1, 1, input_dim, max_length)
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = self.pool(F.relu(self.conv3(x)))
+        # Flatten the tensor
+        return x.numel()
+
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = self.pool(F.relu(self.conv3(x)))
+        x = x.view(x.size(0), -1)  # Flatten the tensor
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)
+        +print(f"Model output shape: {x.shape}")
+        return x
+
+# Initialize the model, loss function, and optimizer
+num_classes = len(label_encoder.classes_)
+model = SimpleCNN(num_classes=num_classes)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+# Move model to GPU if available
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# print summary of network and how many trainable parameters
+print(model)
+print(f"Number of trainable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+
+model.to(device) # need to move to GPU
